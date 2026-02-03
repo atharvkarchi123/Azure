@@ -1,0 +1,130 @@
+{
+	"name": "df_transform_cases_deaths",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "ls_adls",
+						"type": "LinkedServiceReference"
+					},
+					"name": "CasesAndDeaths"
+				},
+				{
+					"linkedService": {
+						"referenceName": "ls_adls",
+						"type": "LinkedServiceReference"
+					},
+					"name": "LookupFile"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "ls_adls",
+						"type": "LinkedServiceReference"
+					},
+					"name": "CasesAndDeathsSink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "FilterEuropeOnly"
+				},
+				{
+					"name": "PivotDailyCount"
+				},
+				{
+					"name": "LookupCountryCode"
+				},
+				{
+					"name": "SelectRequiredOnly"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          country as string,",
+				"          country_code as string,",
+				"          continent as string,",
+				"          population as integer,",
+				"          indicator as string,",
+				"          daily_count as short,",
+				"          date as date,",
+				"          rate_14_day as double,",
+				"          source as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'raw',",
+				"     folderPath: 'bronze/ecdc',",
+				"     fileName: 'cases_deaths.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> CasesAndDeaths",
+				"source(output(",
+				"          country as string,",
+				"          country_code_2_digit as string,",
+				"          country_code_3_digit as string,",
+				"          continent as string,",
+				"          population as integer",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'raw',",
+				"     folderPath: 'bronze/ecdc/country_lookup',",
+				"     fileName: 'country_lookup.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> LookupFile",
+				"CasesAndDeaths filter(continent == 'Europe' && not(isNull(country_code))) ~> FilterEuropeOnly",
+				"FilterEuropeOnly pivot(groupBy(country,",
+				"          country_code,",
+				"          population,",
+				"          date),",
+				"     pivotBy(indicator, ['confirmed cases', 'deaths']),",
+				"     {} = sum(daily_count),",
+				"     columnNaming: '$V$N',",
+				"     lateral: true) ~> PivotDailyCount",
+				"PivotDailyCount, LookupFile lookup(PivotDailyCount@country == LookupFile@country,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> LookupCountryCode",
+				"LookupCountryCode select(mapColumn(",
+				"          country = PivotDailyCount@country,",
+				"          country_code,",
+				"          country_code_2_digit,",
+				"          reported_date = date,",
+				"          confirmed_cases = {confirmed cases},",
+				"          deaths,",
+				"          population = PivotDailyCount@population",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectRequiredOnly",
+				"SelectRequiredOnly sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'processed',",
+				"     folderPath: 'Silver/cases_deaths',",
+				"     truncate: true,",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> CasesAndDeathsSink"
+			]
+		}
+	}
+}

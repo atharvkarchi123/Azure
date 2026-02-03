@@ -1,0 +1,254 @@
+{
+	"name": "df_transform_hospital_admissions",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "ls_adls",
+						"type": "LinkedServiceReference"
+					},
+					"name": "HospitalAdmissions"
+				},
+				{
+					"linkedService": {
+						"referenceName": "ls_adls",
+						"type": "LinkedServiceReference"
+					},
+					"name": "LookupDate"
+				},
+				{
+					"linkedService": {
+						"referenceName": "ls_adls",
+						"type": "LinkedServiceReference"
+					},
+					"name": "LookupCountry"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "ls_adls",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SinkDaily"
+				},
+				{
+					"linkedService": {
+						"referenceName": "ls_adls",
+						"type": "LinkedServiceReference"
+					},
+					"name": "SinkWeekly"
+				}
+			],
+			"transformations": [
+				{
+					"name": "PivotDailyCounts"
+				},
+				{
+					"name": "SplitDailyWeekly"
+				},
+				{
+					"name": "LookupCountryCode"
+				},
+				{
+					"name": "SelectRequiredDaily"
+				},
+				{
+					"name": "PivotWeeklyCounts"
+				},
+				{
+					"name": "AggreagateWeekStartEnd"
+				},
+				{
+					"name": "JoinLookupDate"
+				},
+				{
+					"name": "JoinWeekStartEnd"
+				},
+				{
+					"name": "LookupCountryCodesWeekly"
+				},
+				{
+					"name": "SelectRequiredWeekly"
+				},
+				{
+					"name": "SortWeekly"
+				},
+				{
+					"name": "SortDaily"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          country as string,",
+				"          indicator as string,",
+				"          date as date,",
+				"          year_week as string,",
+				"          value as double,",
+				"          source as string,",
+				"          url as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: true,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'raw',",
+				"     folderPath: 'bronze/ecdc',",
+				"     fileName: 'hospital_admissions.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> HospitalAdmissions",
+				"source(output(",
+				"          date_key as integer,",
+				"          date as date,",
+				"          year as short,",
+				"          month as short,",
+				"          day as short,",
+				"          day_name as string,",
+				"          day_of_year as short,",
+				"          week_of_month as short,",
+				"          week_of_year as short,",
+				"          month_name as string,",
+				"          year_month as integer,",
+				"          year_week as integer",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'raw',",
+				"     folderPath: 'bronze/ecdc/dim_date',",
+				"     fileName: 'dim_date.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> LookupDate",
+				"source(output(",
+				"          country as string,",
+				"          country_code_2_digit as string,",
+				"          country_code_3_digit as string,",
+				"          continent as string,",
+				"          population as integer",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'raw',",
+				"     folderPath: 'bronze/ecdc/country_lookup',",
+				"     fileName: 'country_lookup.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> LookupCountry",
+				"SplitDailyWeekly@DailyData pivot(groupBy(country,",
+				"          date,",
+				"          year_week,",
+				"          source),",
+				"     pivotBy(indicator, ['Daily hospital occupancy', 'Daily ICU occupancy']),",
+				"     {} = sum(value),",
+				"     columnNaming: '$N$V',",
+				"     lateral: true) ~> PivotDailyCounts",
+				"HospitalAdmissions split(like(indicator,'Daily%'),",
+				"     like(indicator,'Weekly%'),",
+				"     disjoint: false) ~> SplitDailyWeekly@(DailyData, WeeklyData)",
+				"PivotDailyCounts, LookupCountry lookup(PivotDailyCounts@country == LookupCountry@country,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> LookupCountryCode",
+				"LookupCountryCode select(mapColumn(",
+				"          country = PivotDailyCounts@country,",
+				"          country_code_2_digit,",
+				"          country_code_3_digit,",
+				"          population,",
+				"          reported_date = date,",
+				"          {Daily hospital occupancy},",
+				"          {Daily ICU occupancy},",
+				"          source",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectRequiredDaily",
+				"SplitDailyWeekly@WeeklyData pivot(groupBy(country,",
+				"          date,",
+				"          source,",
+				"          year_week),",
+				"     pivotBy(indicator, ['Weekly new hospital admissions per 100k', 'Weekly new ICU admissions per 100k']),",
+				"     {} = sum(value),",
+				"     columnNaming: '$N$V',",
+				"     lateral: true) ~> PivotWeeklyCounts",
+				"LookupDate aggregate(groupBy(ecdc_week_year = toString(year)+'-W'+lpad(toString(week_of_year),2,'0')),",
+				"     week_start = min(date),",
+				"          week_end = max(date)) ~> AggreagateWeekStartEnd",
+				"PivotWeeklyCounts, LookupDate join(PivotWeeklyCounts@date == LookupDate@date,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> JoinLookupDate",
+				"JoinLookupDate, AggreagateWeekStartEnd join(toString(year) + '-W' + lpad(toString(week_of_year),2,'0') == ecdc_week_year,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> JoinWeekStartEnd",
+				"JoinWeekStartEnd, LookupCountry lookup(PivotWeeklyCounts@country == LookupCountry@country,",
+				"     multiple: false,",
+				"     pickup: 'any',",
+				"     broadcast: 'auto')~> LookupCountryCodesWeekly",
+				"LookupCountryCodesWeekly select(mapColumn(",
+				"          country = PivotWeeklyCounts@country,",
+				"          country_code_2_digit,",
+				"          country_code_3_digit,",
+				"          population,",
+				"          date = PivotWeeklyCounts@date,",
+				"          ecdc_week_year,",
+				"          reported_week_start = week_start,",
+				"          reported_week_end = week_end,",
+				"          weekly_hospital_occupancy_per100k = {Weekly new hospital admissions per 100k},",
+				"          weekly_icu_occupancy_per100k = {Weekly new ICU admissions per 100k},",
+				"          source",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SelectRequiredWeekly",
+				"SelectRequiredWeekly sort(desc(date, true),",
+				"     asc(country, true),",
+				"     caseInsensitive: true) ~> SortWeekly",
+				"SelectRequiredDaily sort(desc(reported_date, true),",
+				"     asc(country, true),",
+				"     caseInsensitive: true) ~> SortDaily",
+				"SortDaily sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'processed',",
+				"     folderPath: 'Silver/hospitalizations_daily',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SinkDaily",
+				"SortWeekly sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'processed',",
+				"     folderPath: 'Silver',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SinkWeekly"
+			]
+		}
+	}
+}

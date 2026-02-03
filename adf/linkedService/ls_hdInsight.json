@@ -1,0 +1,31 @@
+{
+	"name": "ls_hdInsight",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "HDInsightOnDemand",
+		"typeProperties": {
+			"clusterType": "hadoop",
+			"clusterSize": 2,
+			"clusterNamePrefix": "",
+			"timeToLive": "00:05:00",
+			"version": "4.0",
+			"hostSubscriptionId": "c76b9793-fc38-4d90-ac6d-e4336bb4a920",
+			"clusterResourceGroup": "Databricks_course-rg",
+			"linkedServiceName": {
+				"referenceName": "ls_adls",
+				"type": "LinkedServiceReference"
+			},
+			"additionalLinkedServiceNames": [
+				{
+					"referenceName": "ls_azblob",
+					"type": "LinkedServiceReference"
+				}
+			],
+			"headNodeSize": "",
+			"dataNodeSize": "",
+			"zookeeperNodeSize": "",
+			"clusterResourceGroupAuthType": "SystemAssignedManagedIdentity"
+		}
+	}
+}

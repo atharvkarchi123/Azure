@@ -1,0 +1,12 @@
+{
+	"name": "ls_azblob",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobStorage",
+		"typeProperties": {
+			"serviceEndpoint": "https://atharvkarchisa.blob.core.windows.net/",
+			"accountKind": "StorageV2"
+		}
+	}
+}

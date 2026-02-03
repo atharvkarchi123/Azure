@@ -1,0 +1,9 @@
+{
+	"name": "atharvkarchi-adf",
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "a6cb35b9-c91e-4aba-ac5e-9d17fd98d5ab",
+		"tenantId": "2f10ca35-7ea4-4ee4-91e4-b71262a07a86"
+	}
+}

@@ -1,0 +1,27 @@
+{
+	"name": "AzureDatabricks1",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureDatabricks",
+		"typeProperties": {
+			"domain": "https://adb-7405618572525010.10.azuredatabricks.net",
+			"authentication": "MSI",
+			"workspaceResourceId": "/subscriptions/c76b9793-fc38-4d90-ac6d-e4336bb4a920/resourceGroups/Databricks_course-rg/providers/Microsoft.Databricks/workspaces/F1-DB-WS",
+			"newClusterNodeType": "Standard_D4s_v3",
+			"newClusterNumOfWorker": "1",
+			"newClusterSparkConf": {
+				"fs.azure.account.key.atharvkarchiadls.dfs.core.windows.net": "{{secrets/formula1-scope/accessKey-f1-adls}}"
+			},
+			"newClusterSparkEnvVars": {
+				"raw_container": "abfss://raw@atharvkarchiadls.dfs.core.windows.net",
+				"processed_container": "abfss://processed@atharvkarchiadls.dfs.core.windows.net",
+				"PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+			},
+			"newClusterVersion": "17.3.x-scala2.13",
+			"clusterOption": "Fixed",
+			"newClusterInitScripts": [],
+			"dataSecurityMode": "USER_ISOLATION"
+		}
+	}
+}
